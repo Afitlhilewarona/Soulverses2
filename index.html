@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Soul Verses — A Poetry Sanctuary</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#c9963a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Soul Verses">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Lato:wght@300;400;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -141,7 +146,7 @@
   <div class="nav-links">
     <a href="#browse">Browse</a>
     <a href="#post">Post a Poem</a>
-    <button class="btn btn-outline" onclick="showToast('Sign in coming soon!')">Sign In</button>
+    <button id="installBtn" class="btn btn-outline" onclick="installApp()" style="display:none; align-items:center; gap:.4rem;">📲 Install App</button>
     <button class="btn btn-solid" onclick="showToast('Join us — coming soon!')">Join</button>
   </div>
 </nav>
@@ -195,6 +200,7 @@
       </select>
     </div>
     <div class="form-row"><label>Your Poem</label><textarea id="poemBody" placeholder="Write your poem here... let every line breathe."></textarea></div>
+    <div class="form-row"><label>Your Email (optional — to be credited)</label><input type="email" id="submitterEmail" placeholder="e.g. poet@email.com" /></div>
     <button class="btn-post" onclick="submitPoem()">✦ Publish Poem</button>
   </div>
 </section>
@@ -949,15 +955,33 @@ even if I cannot see it yet.`
     const title = document.getElementById('poemTitle').value.trim();
     const genre = document.getElementById('poemGenre').value;
     const body  = document.getElementById('poemBody').value.trim();
+    const email = document.getElementById('submitterEmail').value.trim();
     if (!name || !title || !body) { showToast('Please fill in all fields ✦'); return; }
+
+    // Show on site instantly
     poems.unshift({ id: Date.now(), title, author: name, genre, likes: 0, body });
     renderFilterBar();
     renderPoems();
     document.getElementById('authorName').value = '';
     document.getElementById('poemTitle').value = '';
     document.getElementById('poemBody').value = '';
+    document.getElementById('submitterEmail').value = '';
     showToast('✦ Your poem has been published!');
     document.getElementById('browse').scrollIntoView({ behavior: 'smooth' });
+
+    // Email Gwenlyn via Formspree
+    fetch('https://formspree.io/f/Gwenlyn575@gmail.com, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        _subject: '✦ New Poem Posted on Soul Verses!',
+        'Poet Name': name,
+        'Poem Title': title,
+        'Genre': genre,
+        'Poet Email': email || 'Not provided',
+        'Poem': body
+      })
+    }).catch(() => {}); // silent fail — site still works
   }
 
   function showToast(msg) {
@@ -965,6 +989,31 @@ even if I cannot see it yet.`
     t.textContent = msg;
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  // PWA service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  // PWA install prompt
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const btn = document.getElementById('installBtn');
+    if (btn) btn.style.display = 'flex';
+  });
+
+  function installApp() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(() => {
+        deferredPrompt = null;
+        const btn = document.getElementById('installBtn');
+        if (btn) btn.style.display = 'none';
+      });
+    }
   }
 
   renderFilterBar();
